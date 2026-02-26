@@ -87,11 +87,22 @@ app.post("/telegram", async (req, res) => {
           text:
             "🔐 Ваш демо-доступ:\n\n" +
             `🌐 ${PLATFORM_URL}\n` +
-            "👤 Логин: demo_user\n" +
-            "🔑 Пароль: demo123"
+            "👤 Логин: demo\n" +
+            "🔑 Пароль: demo1234"
         });
       } catch {}
-
+      
+// 🚨 ALERT админу: пароль выдан
+try {
+  await axios.post(`${TG}/sendMessage`, {
+    chat_id: ADMIN_CHAT_ID,
+    text:
+      "🚨 ПАРОЛЬ ВЫДАН\n\n" +
+      `👤 ${from.first_name || ""} ${from.last_name || ""} (@${from.username || "no_username"})\n` +
+      `🆔 Telegram ID: ${from.id}\n` +
+      `⏰ ${new Date().toLocaleString()}`
+  });
+} catch {}
       return;
     }
 
