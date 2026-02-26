@@ -5,19 +5,19 @@ const app = express();
 app.use(express.json());
 
 // === ВАЖНО: вставь токен бота сюда ===
-const BOT_TOKEN = "8648067650:AAGb3L7ASsAqYdIx8aHEqvyojeUm1Rn2mzE";
+const BOT_TOKEN = "8648067650:AAF5AkkojfiHJIn9rjFyfke96vZa0hYdcIs";
 
-// Твой Telegram ID (админ, куда приходят уведомления)
+// Твой Telegram ID (админ, куда приходит ALERT только при выдаче пароля)
 const ADMIN_CHAT_ID = "7862998301";
 
-// Публичный URL твоего Render-сервиса (нужен для webhook и редиректа)
+// Публичный URL твоего Render-сервиса (задай в Render ENV: PUBLIC_URL)
 const PUBLIC_URL = process.env.PUBLIC_URL || "https://YOUR-SERVICE.onrender.com";
 
 // Куда вести пользователя (платформа/демо)
 const PLATFORM_URL = process.env.PLATFORM_URL || "https://tracking.aset.tj/new/";
 
-if (!BOT_TOKEN || BOT_TOKEN.includes("PASTE_YOUR_BOT_TOKEN_HERE")) {
-  console.error("❌ Укажи BOT_TOKEN в server.js (PASTE_YOUR_BOT_TOKEN_HERE)");
+if (!BOT_TOKEN || BOT_TOKEN.includes("PASTE_NEW_BOT_TOKEN_HERE")) {
+  console.error("❌ Укажи BOT_TOKEN в server.js (PASTE_NEW_BOT_TOKEN_HERE)");
 }
 if (!PUBLIC_URL || PUBLIC_URL.includes("YOUR-SERVICE.onrender.com")) {
   console.warn("⚠️ PUBLIC_URL не задан. Укажи PUBLIC_URL в Render ENV или в server.js.");
@@ -36,13 +36,13 @@ app.get("/setWebhook", async (req, res) => {
   }
 });
 
-// 2) Редирект на платформу + уведомление админу
+// 2) Редирект на платформу + уведомление админу о переходе (оставляем как было)
 app.get("/go", async (req, res) => {
   const uid = req.query.uid || "unknown";
   try {
     await axios.post(`${TG}/sendMessage`, {
       chat_id: ADMIN_CHAT_ID,
-      text: `🌐 Переход на платформу из бота\n👤 Telegram ID: ${uid}\n🔗 URL: ${PLATFORM_URL}`
+      text: `🌐 Переход на платформу из бота\n👤 Telegram ID: ${uid}\n🔗 URL: ${PLATFORM_URL}`,
     });
   } catch (e) {
     // ignore
@@ -50,7 +50,7 @@ app.get("/go", async (req, res) => {
   return res.redirect(302, PLATFORM_URL);
 });
 
-// 3) Webhook Telegram: inline-кнопки + выдача пароля + уведомления админу
+// 3) Webhook Telegram: inline-кнопки + выдача пароля + ALERT админу (только при выдаче)
 app.post("/telegram", async (req, res) => {
   res.sendStatus(200);
 
@@ -69,8 +69,7 @@ app.post("/telegram", async (req, res) => {
     if (!chatId) return;
 
     if (data === "GET_PASS") {
-    
-      // ответ пользователю
+      // 1) отправляем пароль пользователю
       try {
         await axios.post(`${TG}/sendMessage`, {
           chat_id: chatId,
@@ -78,21 +77,22 @@ app.post("/telegram", async (req, res) => {
             "🔐 Ваш демо-доступ:\n\n" +
             `🌐 ${PLATFORM_URL}\n` +
             "👤 Логин: demo\n" +
-            "🔑 Пароль: demo1234"
+            "🔑 Пароль: demo1234",
         });
       } catch {}
-      
-// 🚨 ALERT админу: пароль выдан
-try {
-  await axios.post(`${TG}/sendMessage`, {
-    chat_id: ADMIN_CHAT_ID,
-    text:
-      "🚨 ПАРОЛЬ ВЫДАН\n\n" +
-      `👤 ${from.first_name || ""} ${from.last_name || ""} (@${from.username || "no_username"})\n` +
-      `🆔 Telegram ID: ${from.id}\n` +
-      `⏰ ${new Date().toLocaleString()}`
-  });
-} catch {}
+
+      // 2) ЕДИНСТВЕННЫЙ ALERT админу (только при выдаче пароля)
+      try {
+        await axios.post(`${TG}/sendMessage`, {
+          chat_id: ADMIN_CHAT_ID,
+          text:
+            "🚨 ПАРОЛЬ ВЫДАН\n\n" +
+            `👤 ${from.first_name || ""} ${from.last_name || ""} (@${from.username || "no_username"})\n` +
+            `🆔 Telegram ID: ${from.id}\n` +
+            `⏰ ${new Date().toLocaleString()}`,
+        });
+      } catch {}
+
       return;
     }
 
@@ -106,22 +106,23 @@ try {
   const chatId = msg.chat.id;
   const text = (msg.text || "").trim();
 
+  // /start или /start demo
+  if (text.startsWith("/start")) {
     const goLink = `${PUBLIC_URL}/go?uid=${encodeURIComponent(msg.from?.id || chatId)}`;
 
-// меню
-try {
-  const goLink = `${PUBLIC_URL}/go?uid=${encodeURIComponent(msg.from?.id || chatId)}`;
-
-  await axios.post(`${TG}/sendMessage`, {
-    chat_id: chatId,
-    text: "Выберите действие:",
-    reply_markup: {
-      inline_keyboard: [
-        [{ text: "🔑 Получить пароль", callback_data: "GET_PASS" }],
-        [{ text: "🌐 Открыть платформу", url: goLink }]
-      ]
-    }
-} catch {}
+    // меню (без уведомлений админу)
+    try {
+      await axios.post(`${TG}/sendMessage`, {
+        chat_id: chatId,
+        text: "Выберите действие:",
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: "🔑 Получить пароль", callback_data: "GET_PASS" }],
+            [{ text: "🌐 Открыть платформу", url: goLink }],
+          ],
+        },
+      });
+    } catch {}
 
     return;
   }
@@ -130,7 +131,7 @@ try {
   try {
     await axios.post(`${TG}/sendMessage`, {
       chat_id: chatId,
-      text: "Нажмите /start, чтобы получить кнопки демо-доступа."
+      text: "Нажмите /start, чтобы получить кнопки демо-доступа.",
     });
   } catch {}
 });
