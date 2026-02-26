@@ -69,17 +69,7 @@ app.post("/telegram", async (req, res) => {
     if (!chatId) return;
 
     if (data === "GET_PASS") {
-      // уведомление админу
-      try {
-        await axios.post(`${TG}/sendMessage`, {
-          chat_id: ADMIN_CHAT_ID,
-          text:
-            `🔑 Запрос пароля (inline)\n` +
-            `👤 ${from.first_name || ""} ${from.last_name || ""} (@${from.username || "no_username"})\n` +
-            `🆔 Telegram ID: ${from.id}`
-        });
-      } catch {}
-
+    
       // ответ пользователю
       try {
         await axios.post(`${TG}/sendMessage`, {
@@ -115,22 +105,6 @@ try {
 
   const chatId = msg.chat.id;
   const text = (msg.text || "").trim();
-
-  // /start или /start demo
-  if (text.startsWith("/start")) {
-    const isDemo = text.includes("demo");
-
-    // уведомление админу: вход в бота
-    try {
-      await axios.post(`${TG}/sendMessage`, {
-        chat_id: ADMIN_CHAT_ID,
-        text:
-          `🤖 Вход в бота\n` +
-          `👤 ${msg.from?.first_name || ""} ${msg.from?.last_name || ""} (@${msg.from?.username || "no_username"})\n` +
-          `🆔 Telegram ID: ${msg.from?.id}\n` +
-          `📌 Source: ${isDemo ? "site_button_demo" : "start"}`
-      });
-    } catch {}
 
     const goLink = `${PUBLIC_URL}/go?uid=${encodeURIComponent(msg.from?.id || chatId)}`;
 
