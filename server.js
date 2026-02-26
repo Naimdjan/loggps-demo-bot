@@ -108,19 +108,21 @@ try {
 
     const goLink = `${PUBLIC_URL}/go?uid=${encodeURIComponent(msg.from?.id || chatId)}`;
 
-    // меню
-    try {
-      await axios.post(`${TG}/sendMessage`, {
-        chat_id: chatId,
-        text: "Выберите действие:",
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: "🔑 Получить пароль", callback_data: "GET_PASS" }],
-            [{ text: "🌐 Открыть платформу", url: goLink }]
-          ]
-        }
-      });
-    } catch {}
+// меню
+try {
+  const goLink = `${PUBLIC_URL}/go?uid=${encodeURIComponent(msg.from?.id || chatId)}`;
+
+  await axios.post(`${TG}/sendMessage`, {
+    chat_id: chatId,
+    text: "Выберите действие:",
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: "🔑 Получить пароль", callback_data: "GET_PASS" }],
+        [{ text: "🌐 Открыть платформу", url: goLink }]
+      ]
+    }
+  });
+} catch {}
 
     return;
   }
