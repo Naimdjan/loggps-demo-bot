@@ -116,9 +116,10 @@ app.post("/telegram", async (req, res) => {
 
   // /start или /start demo
   if (text.startsWith("/start")) {
-    const goLink = `${PUBLIC_URL}/go?uid=${encodeURIComponent(msg.from?.id || chatId)}&target=platform`;
-    const androidLink = `${PUBLIC_URL}/go?uid=${encodeURIComponent(msg.from?.id || chatId)}&target=android`;
-    const iosLink = `${PUBLIC_URL}/go?uid=${encodeURIComponent(msg.from?.id || chatId)}&target=ios`;
+    // ✅ ПРЯМЫЕ ССЫЛКИ (без /go), чтобы Telegram открывал нужные URL, а не Render
+    const platformLink = "https://tracking.aset.tj";
+    const androidLink = "https://play.google.com/store/apps/details?id=ideabits.fmc";
+    const iosLink = "https://apps.apple.com/tj/app/fmc/id879075470";
 
     // меню (без уведомлений админу)
     try {
@@ -128,9 +129,9 @@ app.post("/telegram", async (req, res) => {
         reply_markup: {
           inline_keyboard: [
             [{ text: "🔑 Получить пароль", callback_data: "GET_PASS" }],
-            [{ text: "🌐 Открыть платформу", url: https://tracking.aset.tj }],
-            [{ text: "📲 Скачать Android", url: https://play.google.com/store/apps/details?id=ideabits.fmcandroidLink }],
-            [{ text: "📱 Скачать iOS", url: https://apps.apple.com/tj/app/fmc/id879075470 }],
+            [{ text: "🌐 Открыть платформу", url: platformLink }],
+            [{ text: "📲 Скачать Android", url: androidLink }],
+            [{ text: "📱 Скачать iOS", url: iosLink }],
           ],
         },
       });
