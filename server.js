@@ -14,10 +14,9 @@ const PLATFORM_URL = process.env.PLATFORM_URL || "https://tracking.aset.tj/new/"
 const TG = `https://api.telegram.org/bot${BOT_TOKEN}`;
 
 // === ДЕТАЛЬНАЯ СТАТИСТИКА ===
-// Данные хранятся в памяти и сбросятся при перезагрузке сервера на Render
 let stats = {
   total: { pass: 0, web: 0, android: 0, ios: 0 },
-  daily: {} // Формат: "01.03.2026": { pass: 0, web: 0, android: 0, ios: 0 }
+  daily: {}
 };
 
 const getTjDate = (offset = 0) => {
@@ -62,7 +61,7 @@ app.post("/telegram", async (req, res) => {
 
     axios.post(`${TG}/answerCallbackQuery`, { callback_query_id: cq.id }).catch(()=>{});
 
-    // --- ЛОГИКА ОТЧЕТОВ ---
+    // --- ЛОГИКА ОТЧЕТОВ (Только для админа) ---
     if (data.startsWith("STATS_") && isAdmin) {
       let reportText = "";
       if (data === "STATS_TODAY") {
@@ -108,26 +107,51 @@ app.post("/telegram", async (req, res) => {
         "GO_IOS": "https://apps.apple.com/tj/app/fmc/id879075470"
     };
 
+    // Описания для переходов
+    const descriptions = {
+        "GO_PLATFORM": "💻 <b>Веб-платформа</b>\nПолноценная версия мониторинга для ПК. Доступны расширенные отчеты, построение треков и управление автопарком.",
+        "GO_ANDROID": "📲 <b>Приложение для Android</b>\nМобильный клиент для контроля объектов прямо со смартфона: уведомления, текущее местоположение и история поездок.",
+        "GO_IOS": "📱 <b>Приложение для iOS</b>\nМобильный клиент для iPhone и iPad: держите ваш автопарк под контролем где бы вы ни находились."
+    };
+
+    // 1. Выдача пароля с удобным форматированием
     if (data === "GET_PASS") {
       updateStats("pass");
+      const passText = `🔐 <b>Ваш демо-доступ:</b>\n\n` +
+                       `🌐 Платформа:\n${PLATFORM_URL}\n\n` +
+                       `👤 Логин:\n<code>demo</code>\n\n` +
+                       `🔑 Пароль:\n<code>demo1234</code>\n\n` +
+                       `<i>💡 Подсказка: нажмите на логин или пароль, чтобы скопировать их в буфер обмена.</i>`;
+                       
       axios.post(`${TG}/sendMessage`, {
         chat_id: chatId,
-        text: `🔐 <b>Демо-доступ:</b>\n\n🌐 ${PLATFORM_URL}\n👤 Логин: <code>demo</code>\n🔑 Пароль: <code>demo1234</code>`,
+        text: passText,
         parse_mode: "HTML"
       }).catch(()=>{});
+    
+    // 2. Переходы по ссылкам с описанием
     } else if (linkMap[data]) {
       updateStats(linkMap[data]);
       axios.post(`${TG}/sendMessage`, {
         chat_id: chatId,
-        text: `🚀 Ссылка для перехода:\n${urls[data]}`
+        text: `${descriptions[data]}\n\n🚀 <b>Ссылка для перехода:</b>\n${urls[data]}`,
+        parse_mode: "HTML"
       }).catch(()=>{});
     }
 
     // Алерт админу
     if (data !== "ADMIN_MENU" && !data.startsWith("STATS_")) {
+        const labels = {
+          "GO_PLATFORM": "🌐 Платформа",
+          "GO_ANDROID": "📲 Android",
+          "GO_IOS": "📱 iOS",
+          "GET_PASS": "🔑 Пароль"
+        };
+        const actionLabel = labels[data] || data;
+        
         axios.post(`${TG}/sendMessage`, {
           chat_id: ADMIN_CHAT_ID,
-          text: `🔔 <b>Действие:</b> ${data}\n👤 <b>От:</b> ${from.first_name} (@${from.username || 'id' + from.id})\n⏰ <b>Время:</b> ${getTjTime()}`,
+          text: `🔔 <b>Действие:</b> ${actionLabel}\n👤 <b>От:</b> ${from.first_name} (@${from.username || 'id' + from.id})\n⏰ <b>Время:</b> ${getTjTime()}`,
           parse_mode: "HTML"
         }).catch(()=>{});
     }
@@ -149,7 +173,7 @@ app.post("/telegram", async (req, res) => {
 
     axios.post(`${TG}/sendMessage`, {
       chat_id: msg.chat.id,
-      text: "Выберите действие:",
+      text: "Добро пожаловать в систему мониторинга Aset GPS! Выберите действие:",
       reply_markup: { inline_keyboard: keyboard }
     }).catch(()=>{});
   }
