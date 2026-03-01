@@ -13,6 +13,12 @@ const PLATFORM_URL = process.env.PLATFORM_URL || "https://tracking.aset.tj/new/"
 
 const TG = `https://api.telegram.org/bot${BOT_TOKEN}`;
 
+// === СТАТИСТИКА (сбрасывается при перезагрузке сервера) ===
+let stats = {
+  passwords_issued: 0,
+  link_clicks: 0
+};
+
 // Время Таджикистана (UTC+5)
 const getTjTime = () => {
   return new Date().toLocaleString("ru-RU", {
@@ -25,6 +31,7 @@ const getTjTime = () => {
 app.post("/telegram", async (req, res) => {
   res.sendStatus(200);
 
+  // --- ОБРАБОТКА НАЖАТИЙ КНОПОК ---
   if (req.body?.callback_query) {
     const cq = req.body.callback_query;
     const from = cq.from;
@@ -41,12 +48,34 @@ app.post("/telegram", async (req, res) => {
       "GO_PLATFORM": "🌐 Платформа",
       "GO_ANDROID": "📲 Android",
       "GO_IOS": "📱 iOS",
-      "GET_PASS": "🔑 Пароль"
+      "GET_PASS": "🔑 Пароль",
+      "GET_STATS": "📊 Отчет"
     };
 
     axios.post(`${TG}/answerCallbackQuery`, { callback_query_id: cq.id }).catch(()=>{});
 
-    // 1. ОТПРАВКА АЛЕРТА АДМИНУ (Исправлено: используем HTML вместо Markdown для избежания ошибки 400)
+    // 1. ОБРАБОТКА КНОПКИ ОТЧЕТА (Только для админа)
+    if (data === "GET_STATS") {
+      if (String(from.id) === ADMIN_CHAT_ID) {
+        await axios.post(`${TG}/sendMessage`, {
+          chat_id: ADMIN_CHAT_ID,
+          text: `<b>📊 ОТЧЕТ ПО СТАТИСТИКЕ</b>\n\n` +
+                `🔑 Выдано паролей: <b>${stats.passwords_issued}</b>\n` +
+                `🔗 Переходов по ссылкам: <b>${stats.link_clicks}</b>\n\n` +
+                `<i>Обновлено: ${getTjTime()}</i>`,
+          parse_mode: "HTML"
+        }).catch(()=>{});
+      }
+      return;
+    }
+
+    // 2. ОТПРАВКА АЛЕРТА АДМИНУ + ОБНОВЛЕНИЕ СТАТИСТИКИ
+    if (data === "GET_PASS") {
+      stats.passwords_issued++;
+    } else if (links[data]) {
+      stats.link_clicks++;
+    }
+
     const userName = from.first_name || "User";
     const userUser = from.username ? `@${from.username}` : `id${from.id}`;
     
@@ -56,7 +85,7 @@ app.post("/telegram", async (req, res) => {
       parse_mode: "HTML"
     }).catch(e => console.error("Ошибка алерта:", e.response ? e.response.data : e.message));
 
-    // 2. ОТВЕТ ПОЛЬЗОВАТЕЛЮ
+    // 3. ОТВЕТ ПОЛЬЗОВАТЕЛЮ
     if (data === "GET_PASS") {
       axios.post(`${TG}/sendMessage`, {
         chat_id: chatId,
@@ -72,18 +101,29 @@ app.post("/telegram", async (req, res) => {
     return;
   }
 
+  // --- ОБРАБОТКА /START ---
   const msg = req.body?.message;
   if (msg?.text?.startsWith("/start")) {
+    const isParamDemo = msg.text.includes("demo");
+    const isAdmin = String(msg.from.id) === ADMIN_CHAT_ID;
+
+    const keyboard = [
+      [{ text: "🔑 Получить пароль", callback_data: "GET_PASS" }],
+      [{ text: "🌐 Открыть платформу", callback_data: "GO_PLATFORM" }],
+      [{ text: "📲 Скачать Android", callback_data: "GO_ANDROID" }],
+      [{ text: "📱 Скачать iOS", callback_data: "GO_IOS" }]
+    ];
+
+    // Если пишет админ, добавляем ему кнопку отчета
+    if (isAdmin) {
+      keyboard.push([{ text: "📊 Посмотреть отчет", callback_data: "GET_STATS" }]);
+    }
+
     axios.post(`${TG}/sendMessage`, {
       chat_id: msg.chat.id,
       text: "Добро пожаловать в Aset GPS! Выберите действие:",
       reply_markup: {
-        inline_keyboard: [
-          [{ text: "🔑 Получить пароль", callback_data: "GET_PASS" }],
-          [{ text: "🌐 Открыть платформу", callback_data: "GO_PLATFORM" }],
-          [{ text: "📲 Скачать Android", callback_data: "GO_ANDROID" }],
-          [{ text: "📱 Скачать iOS", callback_data: "GO_IOS" }]
-        ]
+        inline_keyboard: keyboard
       }
     }).catch(()=>{});
   }
