@@ -128,9 +128,9 @@ app.post("/telegram", async (req, res) => {
         reply_markup: {
           inline_keyboard: [
             [{ text: "🔑 Получить пароль", callback_data: "GET_PASS" }],
-            [{ text: "🌐 Открыть платформу", url: goLink }],
-            [{ text: "📲 Скачать Android", url: androidLink }],
-            [{ text: "📱 Скачать iOS", url: iosLink }],
+            [{ text: "🌐 Открыть платформу", url: https://tracking.aset.tj }],
+            [{ text: "📲 Скачать Android", url: https://play.google.com/store/apps/details?id=ideabits.fmcandroidLink }],
+            [{ text: "📱 Скачать iOS", url: https://apps.apple.com/tj/app/fmc/id879075470 }],
           ],
         },
       });
