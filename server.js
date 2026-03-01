@@ -108,7 +108,7 @@ app.post("/telegram", async (req, res) => {
 
   // /start или /start demo
   if (text.startsWith("/start")) {
-     const goLink = "https://asetgps.com";
+     const goLink = "https://asetgps.com/tariffs";
 
     // меню (без уведомлений админу)
     try {
