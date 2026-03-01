@@ -39,15 +39,23 @@ app.get("/setWebhook", async (req, res) => {
 // 2) Редирект на платформу + уведомление админу о переходе (оставляем как было)
 app.get("/go", async (req, res) => {
   const uid = req.query.uid || "unknown";
+  const target = req.query.target || "platform";
+  const links = {
+    platform: "https://tracking.aset.tj",
+    android: "https://play.google.com/store/apps/details?id=ideabits.fmc",
+    ios: "https://apps.apple.com/tj/app/fmc/id879075470",
+  };
+  const redirectUrl = links[target] || links.platform;
+
   try {
     await axios.post(`${TG}/sendMessage`, {
       chat_id: ADMIN_CHAT_ID,
-      text: `🌐 Переход на платформу из бота\n👤 Telegram ID: ${uid}\n🔗 URL: ${PLATFORM_URL}`,
+      text: `🌐 Переход по ссылке из бота\n👤 Telegram ID: ${uid}\n🎯 Тип: ${target}\n🔗 URL: ${redirectUrl}`,
     });
   } catch (e) {
     // ignore
   }
-  return res.redirect(302, PLATFORM_URL);
+  return res.redirect(302, redirectUrl);
 });
 
 // 3) Webhook Telegram: inline-кнопки + выдача пароля + ALERT админу (только при выдаче)
@@ -108,7 +116,9 @@ app.post("/telegram", async (req, res) => {
 
   // /start или /start demo
   if (text.startsWith("/start")) {
-    const goLink = "https://tracking.aset.tj";
+    const goLink = `${PUBLIC_URL}/go?uid=${encodeURIComponent(msg.from?.id || chatId)}&target=platform`;
+    const androidLink = `${PUBLIC_URL}/go?uid=${encodeURIComponent(msg.from?.id || chatId)}&target=android`;
+    const iosLink = `${PUBLIC_URL}/go?uid=${encodeURIComponent(msg.from?.id || chatId)}&target=ios`;
 
     // меню (без уведомлений админу)
     try {
@@ -119,8 +129,8 @@ app.post("/telegram", async (req, res) => {
           inline_keyboard: [
             [{ text: "🔑 Получить пароль", callback_data: "GET_PASS" }],
             [{ text: "🌐 Открыть платформу", url: goLink }],
-            [{ text: "📲 Скачать Android", url: "https://play.google.com/store/apps/details?id=ideabits.fmc" }],
-            [{ text: "📱 Скачать iOS", url: "https://apps.apple.com/tj/app/fmc/id879075470" }],
+            [{ text: "📲 Скачать Android", url: androidLink }],
+            [{ text: "📱 Скачать iOS", url: iosLink }],
           ],
         },
       });
