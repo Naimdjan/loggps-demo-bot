@@ -4,28 +4,17 @@ const axios = require("axios");
 const app = express();
 app.use(express.json());
 
-// === ВАЖНО: вставь токен бота сюда ===
+// === ТОКЕН И ID ===
 const BOT_TOKEN = "8648067650:AAF5AkkojfiHJIn9rjFyfke96vZa0hYdcIs";
-
-// Твой Telegram ID (админ, куда приходит ALERT только при выдаче пароля)
 const ADMIN_CHAT_ID = "7862998301";
 
-// Публичный URL твоего Render-сервиса (задай в Render ENV: PUBLIC_URL)
-const PUBLIC_URL = process.env.PUBLIC_URL || "https://YOUR-SERVICE.onrender.com";
-
-// Куда вести пользователя (платформа/демо)
-const PLATFORM_URL = process.env.PLATFORM_URL || "https://tracking.aset.tj";
-
-if (!BOT_TOKEN || BOT_TOKEN.includes("PASTE_NEW_BOT_TOKEN_HERE")) {
-  console.error("❌ Укажи BOT_TOKEN в server.js (PASTE_NEW_BOT_TOKEN_HERE)");
-}
-if (!PUBLIC_URL || PUBLIC_URL.includes("YOUR-SERVICE.onrender.com")) {
-  console.warn("⚠️ PUBLIC_URL не задан. Укажи PUBLIC_URL в Render ENV или в server.js.");
-}
+// Переменные из панели Render
+const PUBLIC_URL = process.env.PUBLIC_URL; 
+const PLATFORM_URL = process.env.PLATFORM_URL || "https://tracking.aset.tj/new/";
 
 const TG = `https://api.telegram.org/bot${BOT_TOKEN}`;
 
-// 1) Установка webhook (вызвать 1 раз после деплоя)
+// 1) Установка webhook
 app.get("/setWebhook", async (req, res) => {
   try {
     const url = `${PUBLIC_URL}/telegram`;
@@ -36,118 +25,92 @@ app.get("/setWebhook", async (req, res) => {
   }
 });
 
-// 2) Редирект на платформу + уведомление админу о переходе (оставляем как было)
+// 2) Эндпоинт "невидимка" для логирования и мгновенного перехода
 app.get("/go", async (req, res) => {
   const uid = req.query.uid || "unknown";
+  const name = req.query.name || "User";
   const target = req.query.target || "platform";
+  
   const links = {
-    platform: "https://tracking.aset.tj",
+    platform: PLATFORM_URL,
     android: "https://play.google.com/store/apps/details?id=ideabits.fmc",
     ios: "https://apps.apple.com/tj/app/fmc/id879075470",
   };
+  
   const redirectUrl = links[target] || links.platform;
 
-  try {
-    await axios.post(`${TG}/sendMessage`, {
-      chat_id: ADMIN_CHAT_ID,
-      text: `🌐 Переход по ссылке из бота\n👤 Telegram ID: ${uid}\n🎯 Тип: ${target}\n🔗 URL: ${redirectUrl}`,
-    });
-  } catch (e) {
-    // ignore
-  }
+  // Отправляем алерт админу (в фоне)
+  axios.post(`${TG}/sendMessage`, {
+    chat_id: ADMIN_CHAT_ID,
+    text: `🔔 **Клик по кнопке**\n👤 Имя: ${decodeURIComponent(name)}\n🆔 ID: ${uid}\n🎯 Куда: ${target}`,
+    parse_mode: "Markdown"
+  }).catch(() => {}); // Игнорируем ошибки отправки, чтобы не тормозить юзера
+
+  // Мгновенный переброс пользователя
   return res.redirect(302, redirectUrl);
 });
 
-// 3) Webhook Telegram: inline-кнопки + выдача пароля + ALERT админу (только при выдаче)
+// 3) Webhook Telegram
 app.post("/telegram", async (req, res) => {
   res.sendStatus(200);
 
-  // === Callback от inline-кнопок ===
   if (req.body?.callback_query) {
     const cq = req.body.callback_query;
     const chatId = cq.message?.chat?.id;
     const from = cq.from;
     const data = cq.data;
 
-    // убираем "часики" на кнопке
-    try {
-      await axios.post(`${TG}/answerCallbackQuery`, { callback_query_id: cq.id });
-    } catch {}
+    try { await axios.post(`${TG}/answerCallbackQuery`, { callback_query_id: cq.id }); } catch {}
 
-    if (!chatId) return;
-
-    if (data === "GET_PASS") {
-      // 1) отправляем пароль пользователю
+    if (data === "GET_PASS" && chatId) {
+      // Сообщение пользователю
       try {
         await axios.post(`${TG}/sendMessage`, {
           chat_id: chatId,
-          text:
-            "🔐 Ваш демо-доступ:\n\n" +
-            `🌐 ${PLATFORM_URL}\n` +
-            "👤 Логин: demo\n" +
-            "🔑 Пароль: demo1234",
+          text: `🔐 Ваш демо-доступ:\n\n🌐 ${PLATFORM_URL}\n👤 Логин: demo\n🔑 Пароль: demo1234`,
         });
       } catch {}
 
-      // 2) ЕДИНСТВЕННЫЙ ALERT админу (только при выдаче пароля)
+      // Алерт админу (выдача пароля)
       try {
         await axios.post(`${TG}/sendMessage`, {
           chat_id: ADMIN_CHAT_ID,
-          text:
-            "🚨 ПАРОЛЬ ВЫДАН\n\n" +
-            `👤 ${from.first_name || ""} ${from.last_name || ""} (@${from.username || "no_username"})\n` +
-            `🆔 Telegram ID: ${from.id}\n` +
-            `⏰ ${new Date().toLocaleString()}`,
+          text: `🚨 **ПАРОЛЬ ВЫДАН**\n👤 ${from.first_name || ""} (@${from.username || "id" + from.id})`,
+          parse_mode: "Markdown"
         });
       } catch {}
-
-      return;
     }
-
     return;
   }
 
-  // === Обычные сообщения ===
   const msg = req.body?.message;
   if (!msg?.chat?.id) return;
 
-  const chatId = msg.chat.id;
-  const text = (msg.text || "").trim();
+  if (msg.text && msg.text.startsWith("/start")) {
+    const uid = msg.from.id;
+    const name = encodeURIComponent(msg.from.first_name || "User");
 
-  // /start или /start demo
-  if (text.startsWith("/start")) {
-    // ✅ ПРЯМЫЕ ССЫЛКИ (без /go), чтобы Telegram открывал нужные URL, а не Render
-    const platformLink = "https://tracking.aset.tj";
-    const androidLink = "https://play.google.com/store/apps/details?id=ideabits.fmc";
-    const iosLink = "https://apps.apple.com/tj/app/fmc/id879075470";
+    // Формируем ссылки-редиректы
+    const btnPlatform = `${PUBLIC_URL}/go?uid=${uid}&name=${name}&target=platform`;
+    const btnAndroid = `${PUBLIC_URL}/go?uid=${uid}&name=${name}&target=android`;
+    const btnIos = `${PUBLIC_URL}/go?uid=${uid}&name=${name}&target=ios`;
 
-    // меню (без уведомлений админу)
     try {
       await axios.post(`${TG}/sendMessage`, {
-        chat_id: chatId,
+        chat_id: msg.chat.id,
         text: "Выберите действие:",
         reply_markup: {
           inline_keyboard: [
             [{ text: "🔑 Получить пароль", callback_data: "GET_PASS" }],
-            [{ text: "🌐 Открыть платформу", url: platformLink }],
-            [{ text: "📲 Скачать Android", url: androidLink }],
-            [{ text: "📱 Скачать iOS", url: iosLink }],
+            [{ text: "🌐 Открыть платформу", url: btnPlatform }],
+            [{ text: "📲 Скачать Android", url: btnAndroid }],
+            [{ text: "📱 Скачать iOS", url: btnIos }],
           ],
         },
       });
     } catch {}
-
-    return;
   }
-
-  // fallback автоответчик
-  try {
-    await axios.post(`${TG}/sendMessage`, {
-      chat_id: chatId,
-      text: "Нажмите /start, чтобы получить кнопки демо-доступа.",
-    });
-  } catch {}
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log("✅ Bot started on port", PORT));
+app.listen(PORT, () => console.log("✅ Бот запущен"));
