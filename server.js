@@ -108,7 +108,7 @@ app.post("/telegram", async (req, res) => {
 
   // /start или /start demo
   if (text.startsWith("/start")) {
-    const goLink = `${PUBLIC_URL}/go?uid=${encodeURIComponent(msg.from?.id || chatId)}`;
+     const goLink = "https://tracking.aset.tj";
 
     // меню (без уведомлений админу)
     try {
