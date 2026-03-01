@@ -14,7 +14,7 @@ const ADMIN_CHAT_ID = "7862998301";
 const PUBLIC_URL = process.env.PUBLIC_URL || "https://YOUR-SERVICE.onrender.com";
 
 // Куда вести пользователя (платформа/демо)
-const PLATFORM_URL = process.env.PLATFORM_URL || "https://tracking.aset.tj/new/";
+const PLATFORM_URL = process.env.PLATFORM_URL || "https://tracking.aset.tj";
 
 if (!BOT_TOKEN || BOT_TOKEN.includes("PASTE_NEW_BOT_TOKEN_HERE")) {
   console.error("❌ Укажи BOT_TOKEN в server.js (PASTE_NEW_BOT_TOKEN_HERE)");
