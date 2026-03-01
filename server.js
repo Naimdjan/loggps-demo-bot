@@ -108,7 +108,7 @@ app.post("/telegram", async (req, res) => {
 
   // /start или /start demo
   if (text.startsWith("/start")) {
-     const goLink = "https://asetgps.com/tariffs";
+    const goLink = "https://tracking.aset.tj";
 
     // меню (без уведомлений админу)
     try {
@@ -118,7 +118,9 @@ app.post("/telegram", async (req, res) => {
         reply_markup: {
           inline_keyboard: [
             [{ text: "🔑 Получить пароль", callback_data: "GET_PASS" }],
-            [{ text: "🌐 Открыть сайт компании", url: goLink }],
+            [{ text: "🌐 Открыть платформу", url: goLink }],
+            [{ text: "📲 Скачать Android", url: "https://play.google.com/store/apps/details?id=ideabits.fmc" }],
+            [{ text: "📱 Скачать iOS", url: "https://apps.apple.com/tj/app/fmc/id879075470" }],
           ],
         },
       });
