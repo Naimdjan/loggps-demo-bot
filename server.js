@@ -4,18 +4,17 @@ const axios = require("axios");
 const app = express();
 app.use(express.json());
 
-// === КОНФИГУРАЦИЯ ===
-// Токен вашего бота и ваш ID админа
+// === НАСТРОЙКИ ===
 const BOT_TOKEN = "8648067650:AAF5AkkojfiHJIn9rjFyfke96vZa0hYdcIs";
 const ADMIN_CHAT_ID = "7862998301";
 
-// Переменные из панели Render (PUBLIC_URL и PLATFORM_URL)
+// Переменные из панели Render
 const PUBLIC_URL = process.env.PUBLIC_URL; 
 const PLATFORM_URL = process.env.PLATFORM_URL || "https://tracking.aset.tj/new/";
 
 const TG = `https://api.telegram.org/bot${BOT_TOKEN}`;
 
-// Функция для получения времени в формате Таджикистана (UTC+5)
+// Функция для получения времени Tajikistan (UTC+5)
 const getTjTime = () => {
   return new Date().toLocaleString("ru-RU", {
     timeZone: "Asia/Dushanbe",
@@ -32,37 +31,35 @@ const getTjTime = () => {
 app.post("/telegram", async (req, res) => {
   res.sendStatus(200);
 
-  // --- ОБРАБОТКА НАЖАТИЙ КНОПОК (CALLBACK) ---
+  // Обработка нажатий на кнопки (callback_data)
   if (req.body?.callback_query) {
     const cq = req.body.callback_query;
     const from = cq.from;
     const data = cq.data;
     const chatId = cq.message.chat.id;
 
-    // Ссылки для перехода
     const links = {
       "GO_PLATFORM": PLATFORM_URL,
       "GO_ANDROID": "https://play.google.com/store/apps/details?id=ideabits.fmc",
       "GO_IOS": "https://apps.apple.com/tj/app/fmc/id879075470"
     };
 
-    // Названия для алертов
     const labels = {
-      "GO_PLATFORM": "🌐 Веб-платформа",
-      "GO_ANDROID": "📲 Android App",
-      "GO_IOS": "📱 iOS App",
-      "GET_PASS": "🔑 Запрос пароля"
+      "GO_PLATFORM": "🌐 Платформа",
+      "GO_ANDROID": "📲 Android",
+      "GO_IOS": "📱 iOS",
+      "GET_PASS": "🔑 Пароль"
     };
 
-    // Убираем анимацию загрузки на кнопке у пользователя
+    // Убираем анимацию загрузки на кнопке
     axios.post(`${TG}/answerCallbackQuery`, { callback_query_id: cq.id }).catch(() => {});
 
-    // ОТПРАВКА АЛЕРТА АДМИНУ (сначала важное)
+    // ОТПРАВКА АЛЕРТА АДМИНУ
     axios.post(`${TG}/sendMessage`, {
       chat_id: ADMIN_CHAT_ID,
-      text: `🔔 **Действие в боте**\n👤 Пользователь: ${from.first_name || ""} (@${from.username || "id" + from.id})\n🎯 Кнопка: ${labels[data] || data}\n⏰ Время (TJK): ${getTjTime()}`,
+      text: `🚨 **ДЕЙСТВИЕ**\n👤 КТО: ${from.first_name || ""} (@${from.username || "id" + from.id})\n🎯 НАЖАЛ: ${labels[data] || data}\n⏰ ВРЕМЯ: ${getTjTime()}`,
       parse_mode: "Markdown"
-    }).catch(e => console.error("Ошибка отправки алерта:", e.message));
+    }).catch(e => console.error("Ошибка алерта:", e.message));
 
     // ОТВЕТ ПОЛЬЗОВАТЕЛЮ
     if (data === "GET_PASS") {
@@ -74,19 +71,19 @@ app.post("/telegram", async (req, res) => {
     } else if (links[data]) {
       axios.post(`${TG}/sendMessage`, {
         chat_id: chatId,
-        text: `✅ Ссылка для перехода:\n${links[data]}`
+        text: `🚀 Ссылка для перехода:\n${links[data]}`
       }).catch(() => {});
     }
     
     return;
   }
 
-  // --- ОБРАБОТКА КОМАНДЫ /START ---
+  // Обработка /start
   const msg = req.body?.message;
   if (msg?.text?.startsWith("/start")) {
     axios.post(`${TG}/sendMessage`, {
       chat_id: msg.chat.id,
-      text: "Добро пожаловать в Aset GPS! Выберите необходимое действие:",
+      text: "Добро пожаловать в Aset GPS! Выберите действие:",
       reply_markup: {
         inline_keyboard: [
           [{ text: "🔑 Получить пароль", callback_data: "GET_PASS" }],
@@ -99,19 +96,17 @@ app.post("/telegram", async (req, res) => {
   }
 });
 
-// Запуск сервера и автоматическая привязка Webhook
+// Запуск сервера с автоматической установкой Webhook
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, async () => {
-  console.log(`✅ Сервер запущен на порту ${PORT}`);
+  console.log(`✅ Сервер запущен`);
   
   if (PUBLIC_URL) {
     try {
       await axios.post(`${TG}/setWebhook`, { url: `${PUBLIC_URL}/telegram` });
-      console.log(`📡 Webhook успешно установлен на: ${PUBLIC_URL}/telegram`);
+      console.log(`📡 Webhook активен: ${PUBLIC_URL}/telegram`);
     } catch (e) {
       console.log(`❌ Ошибка установки Webhook: ${e.message}`);
     }
-  } else {
-    console.log("⚠️ ВНИМАНИЕ: PUBLIC_URL не найден в переменных окружения Render!");
   }
 });
