@@ -8,30 +8,23 @@ app.use(express.json());
 const BOT_TOKEN = "8648067650:AAF5AkkojfiHJIn9rjFyfke96vZa0hYdcIs";
 const ADMIN_CHAT_ID = "7862998301";
 
-// Переменные из панели Render
 const PUBLIC_URL = process.env.PUBLIC_URL; 
 const PLATFORM_URL = process.env.PLATFORM_URL || "https://tracking.aset.tj/new/";
 
 const TG = `https://api.telegram.org/bot${BOT_TOKEN}`;
 
-// Функция для получения времени Tajikistan (UTC+5)
+// Время Таджикистана (UTC+5)
 const getTjTime = () => {
   return new Date().toLocaleString("ru-RU", {
     timeZone: "Asia/Dushanbe",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric"
+    hour: "2-digit", minute: "2-digit", second: "2-digit",
+    day: "2-digit", month: "2-digit", year: "numeric"
   });
 };
 
-// 1) Основной обработчик Webhook
 app.post("/telegram", async (req, res) => {
   res.sendStatus(200);
 
-  // Обработка нажатий на кнопки (callback_data)
   if (req.body?.callback_query) {
     const cq = req.body.callback_query;
     const from = cq.from;
@@ -51,34 +44,34 @@ app.post("/telegram", async (req, res) => {
       "GET_PASS": "🔑 Пароль"
     };
 
-    // Убираем анимацию загрузки на кнопке
-    axios.post(`${TG}/answerCallbackQuery`, { callback_query_id: cq.id }).catch(() => {});
+    axios.post(`${TG}/answerCallbackQuery`, { callback_query_id: cq.id }).catch(()=>{});
 
-    // ОТПРАВКА АЛЕРТА АДМИНУ
+    // 1. ОТПРАВКА АЛЕРТА АДМИНУ (Исправлено: используем HTML вместо Markdown для избежания ошибки 400)
+    const userName = from.first_name || "User";
+    const userUser = from.username ? `@${from.username}` : `id${from.id}`;
+    
     axios.post(`${TG}/sendMessage`, {
       chat_id: ADMIN_CHAT_ID,
-      text: `🚨 **ДЕЙСТВИЕ**\n👤 КТО: ${from.first_name || ""} (@${from.username || "id" + from.id})\n🎯 НАЖАЛ: ${labels[data] || data}\n⏰ ВРЕМЯ: ${getTjTime()}`,
-      parse_mode: "Markdown"
-    }).catch(e => console.error("Ошибка алерта:", e.message));
+      text: `<b>🚨 ALERT</b>\n<b>КТО:</b> ${userName} (${userUser})\n<b>КНОПКА:</b> ${labels[data] || data}\n<b>ВРЕМЯ:</b> ${getTjTime()}`,
+      parse_mode: "HTML"
+    }).catch(e => console.error("Ошибка алерта:", e.response ? e.response.data : e.message));
 
-    // ОТВЕТ ПОЛЬЗОВАТЕЛЮ
+    // 2. ОТВЕТ ПОЛЬЗОВАТЕЛЮ
     if (data === "GET_PASS") {
       axios.post(`${TG}/sendMessage`, {
         chat_id: chatId,
-        text: `🔐 **Ваш демо-доступ:**\n\n🌐 ${PLATFORM_URL}\n👤 Логин: \`demo\`\n🔑 Пароль: \`demo1234\``,
-        parse_mode: "Markdown"
-      }).catch(() => {});
+        text: `🔐 <b>Ваш демо-доступ:</b>\n\n🌐 ${PLATFORM_URL}\n👤 Логин: <code>demo</code>\n🔑 Пароль: <code>demo1234</code>`,
+        parse_mode: "HTML"
+      }).catch(()=>{});
     } else if (links[data]) {
       axios.post(`${TG}/sendMessage`, {
         chat_id: chatId,
         text: `🚀 Ссылка для перехода:\n${links[data]}`
-      }).catch(() => {});
+      }).catch(()=>{});
     }
-    
     return;
   }
 
-  // Обработка /start
   const msg = req.body?.message;
   if (msg?.text?.startsWith("/start")) {
     axios.post(`${TG}/sendMessage`, {
@@ -92,21 +85,19 @@ app.post("/telegram", async (req, res) => {
           [{ text: "📱 Скачать iOS", callback_data: "GO_IOS" }]
         ]
       }
-    }).catch(() => {});
+    }).catch(()=>{});
   }
 });
 
-// Запуск сервера с автоматической установкой Webhook
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, async () => {
   console.log(`✅ Сервер запущен`);
-  
   if (PUBLIC_URL) {
     try {
       await axios.post(`${TG}/setWebhook`, { url: `${PUBLIC_URL}/telegram` });
       console.log(`📡 Webhook активен: ${PUBLIC_URL}/telegram`);
     } catch (e) {
-      console.log(`❌ Ошибка установки Webhook: ${e.message}`);
+      console.log(`❌ Ошибка Webhook: ${e.message}`);
     }
   }
 });
